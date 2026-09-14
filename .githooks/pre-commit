@@ -1,0 +1,4 @@
+#!/bin/sh
+# Bloqueia commit se algum arquivo staged contiver chave privada / API key real.
+# Ativado com: git config core.hooksPath .githooks
+node "$(git rev-parse --show-toplevel)/scripts/check-secrets.cjs" --staged
