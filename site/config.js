@@ -16,7 +16,7 @@ window.BOND_CONFIG = {
   token: "0x7340685A52e6dC3a8a99f40E856a9C2909227b8C",    // LUNARRAY token created by Pons v2 (curve 0x356DEEbFEf740EC4c182413d36920f8d9EF4f7F6)
   staked: "0x1EFd5B9CE223562073d53F917c52Ae4F7a3e3463",   // StakedLunarray (sLUNARRAY, liquid staking receipt)
   devWallet: "0xCc1Cb626F9DceA57cdA5C00b503d979d86e9d9F1", // dev wallet (launcher, keeper)
-  devlock: "",        // DevLock holding the dev allocation (scripts/5-lock-dev-tokens.js)
+  devlock: "0x9aD147663A1E11A36c07763c7F590757a2312Eea",  // DevLock: dev allocation locked until 2027-09-15, beneficiary = treasury
   tokenSymbol: "LUNARRAY",
   x: "",            // https://x.com/... once the account exists
   treasuryBps: 6000, // creator tax 5%: 3% treasury (60% of every harvest) + 2% protocol
