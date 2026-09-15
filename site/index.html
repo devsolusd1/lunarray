@@ -28,40 +28,23 @@
   <!-- ── tab: dashboard ─────────────────────────────────────────── -->
   <section class="tab" id="dashboard">
     <div class="ttl">DASHBOARD <small id="chainLabel"></small></div>
-    <div class="cols">
-      <div>
-        <div class="kv"><span>discount to target</span><span class="dots"></span><b class="y"><span id="discount">—</span>%</b></div>
-        <div class="kv"><span>bond bonus now</span><span class="dots"></span><b><span id="bonus">—</span>%</b></div>
-        <div class="spark" id="spark"></div>
-        <div class="axis"><span id="sparkNote">price history, ETH per 1M tokens</span><span>target = <span class="hi">─</span></span></div>
-        <div class="kv" style="margin-top:8px"><span>spot</span><span class="dots"></span><b id="spot">—</b></div>
-        <div class="kv"><span>market</span><span class="dots"></span><b id="source">—</b></div>
-        <div class="kv"><span>target (<span id="window">—</span>-sample mean)</span><span class="dots"></span><b id="target">—</b></div>
-        <div class="kv"><span>epoch</span><span class="dots"></span><b id="epoch">—</b></div>
-        <div class="kv"><span>next poke</span><span class="dots"></span><b id="nextPoke">—</b></div>
-        <div class="kv"><span>samples</span><span class="dots"></span><b id="samples">—</b></div>
-      </div>
-      <div>
-        <div class="kv"><span>ETH reserve</span><span class="dots"></span><b id="ethReserve">—</b></div>
-        <div class="kv"><span>crypt</span><span class="dots"></span><b id="crypt">—</b></div>
-        <div class="kv"><span>bonds owed</span><span class="dots"></span><b id="outstanding">—</b></div>
-        <div class="kv"><span>total staked</span><span class="dots"></span><b id="totalStaked">—</b></div>
-        <div class="kv"><span>burned</span><span class="dots"></span><b id="burned">—</b></div>
-        <div class="kv"><span>bought back</span><span class="dots"></span><b id="boughtBack">—</b></div>
-        <div class="kv" style="margin-top:14px"><span>fees unclaimed on pons</span><span class="dots"></span><b id="pending">—</b></div>
-        <div class="kv"><span>fees harvested</span><span class="dots"></span><b id="harvested">—</b></div>
-        <div class="kv"><span>to treasury (<span id="treasuryBps">—</span>%)</span><span class="dots"></span><b id="toTreasury">—</b></div>
-        <div class="kv"><span>to protocol</span><span class="dots"></span><b id="toProtocol">—</b></div>
-      </div>
+    <div class="boxes">
+      <pre class="box" id="boxPrice"></pre>
+      <pre class="box" id="boxEpoch"></pre>
+      <pre class="box" id="boxReserves"></pre>
+      <pre class="box" id="boxFees"></pre>
+      <pre class="box wide" id="boxChart"></pre>
     </div>
 
-    <div class="ttl" style="margin-top:34px">MAINTENANCE <small>anyone can run these</small></div>
-    <p>once per epoch <span class="accent">poke()</span> records the price and buys back with 10% of the reserve on the live market; the caller gets a tip. <span class="accent">harvest()</span> moves fees from pons into the split. <span class="accent">settle()</span> pays matured bonds in order.</p>
+    <div class="ttl" style="margin-top:34px">MAINTENANCE <small>anyone can run these · the poke caller gets the tip</small></div>
     <div class="line">
-      <button class="tbtn" id="pokeBtn">POKE</button>
-      <button class="tbtn" id="harvestBtn">HARVEST</button>
-      <button class="tbtn" id="settleBtn">SETTLE</button>
-      <span class="dim">last sample <span id="lastSample">—</span> · tip <span id="tip">—</span></span>
+      <button class="tbtn" id="pokeBtn">POKE</button><span class="dim">record the price and buy back with 10% of the reserve</span>
+    </div>
+    <div class="line">
+      <button class="tbtn" id="harvestBtn">HARVEST</button><span class="dim">move the fees from pons into the split</span>
+    </div>
+    <div class="line">
+      <button class="tbtn" id="settleBtn">SETTLE</button><span class="dim">pay matured bonds, in order</span>
     </div>
   </section>
 
@@ -73,7 +56,6 @@
         <form id="bondForm">
           <div class="line"><label>&gt; amount</label><input class="field" id="bondAmt" placeholder="0" inputmode="decimal" autocomplete="off" /><span id="bondUnit">TOKEN</span><button type="button" class="max" id="bondMax">(max)</button></div>
           <div class="kv"><span>you receive</span><span class="dots"></span><b id="bondQuote">—</b></div>
-          <div class="kv"><span>matures</span><span class="dots"></span><b>after <span id="vest">—</span> epochs</b></div>
           <div class="line"><button type="submit" class="tbtn primary" id="bondBtn">BOND</button></div>
         </form>
         <div class="help" id="bondHelp"></div>
@@ -83,12 +65,8 @@
         </table>
       </div>
       <div class="panel">
-        <div class="kv"><span>discount to target</span><span class="dots"></span><b class="y"><span id="discount2">—</span>%</b></div>
-        <div class="kv"><span>bond bonus now</span><span class="dots"></span><b><span id="bonus2">—</span>%</b></div>
-        <div class="kv"><span>crypt (pays bonds)</span><span class="dots"></span><b id="crypt2">—</b></div>
-        <div class="kv"><span>bonds owed</span><span class="dots"></span><b id="outstanding2">—</b></div>
-        <p style="margin-top:12px">Deposit when the token trades below its moving target. The deeper the discount, the larger the bonus, locked at entry. <span class="bright" id="entryBurn">—</span>% of the entry is burned. Bonds are paid first-in, first-out from the crypt once they mature. Leaving early returns principal minus <span class="bright" id="penalty">—</span>%.</p>
-        <p class="dim">the bonus is computed against the target, not the last trade. a spot price can move inside a block; the target needs sustained price to move.</p>
+        <pre class="box" id="boxBond"></pre>
+        <p class="dim" style="margin-top:10px">the bonus is locked at entry and computed against the target, not the last trade. bonds are paid first-in, first-out from the crypt once they mature.</p>
       </div>
     </div>
   </section>
@@ -98,8 +76,6 @@
     <div class="ttl">STAKE <small>no lock, no penalty, paid in ETH</small></div>
     <div class="cols">
       <div class="panel">
-        <div class="kv"><span>staked</span><span class="dots"></span><b id="myStake">—</b></div>
-        <div class="kv"><span>ETH to claim</span><span class="dots"></span><b id="myEarned">—</b></div>
         <form id="stakeForm">
           <div class="line"><label>&gt; amount</label><input class="field" id="stakeAmt" placeholder="0" inputmode="decimal" autocomplete="off" /><span id="stakeUnit">TOKEN</span><button type="button" class="max" id="stakeMax">(max)</button></div>
           <div class="line">
@@ -108,12 +84,11 @@
             <button type="button" class="tbtn" id="claimBtn">CLAIM ETH</button>
           </div>
         </form>
+        <p class="dim" style="margin-top:10px">prefer a transferable position? stake through <span class="bright">sLUNARRAY</span>, the liquid staking receipt: 1:1, rewards follow the balance. contract <span id="stakedLink">—</span></p>
       </div>
       <div class="panel">
-        <div class="kv"><span>total staked</span><span class="dots"></span><b id="totalStaked2">—</b></div>
-        <div class="kv"><span>ETH to protocol so far</span><span class="dots"></span><b id="toProtocol2">—</b></div>
-        <p style="margin-top:12px"><span class="bright" id="stakingShare">—</span>% of the ETH that reaches the protocol goes to stakers, pro-rata, the moment it arrives. Unstake any time. Yield starts on the bonding curve, before graduation.</p>
-        <p class="dim">prefer a transferable position? stake through <span class="bright">sLUNARRAY</span>, the liquid staking receipt: 1:1, rewards follow the balance. contract <span id="stakedLink">—</span></p>
+        <pre class="box" id="boxStake"></pre>
+        <p class="dim" style="margin-top:10px">the staker share is added to a per-share accumulator the moment ETH arrives. yield starts on the bonding curve, before graduation.</p>
       </div>
     </div>
   </section>
@@ -138,8 +113,8 @@
   <div class="marquee"><span>LUNARRAY · LIVE FROM THE CURVE · NOTHING IS MINTED · NO ADMIN KEYS OVER USER FUNDS · FEES SPLIT IN CODE · BUYBACK EVERY EPOCH · STAKERS PAID IN ETH · BOND THE DARK SIDE · LUNARRAY · LIVE FROM THE CURVE · NOTHING IS MINTED · NO ADMIN KEYS OVER USER FUNDS · FEES SPLIT IN CODE · BUYBACK EVERY EPOCH · STAKERS PAID IN ETH · BOND THE DARK SIDE · </span></div>
 
   <footer>
-    <div id="addrs"></div>
-    <div id="social"></div>
+    <pre class="box" id="boxContracts"></pre>
+    <div id="social" style="margin-top:10px"></div>
     <div>robinhood chain · fees from pons v2 · liquidity on the pons curve, then uniswap v4 · <a href="docs.html#risks">risks</a></div>
   </footer>
 </div>

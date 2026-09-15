@@ -110,5 +110,34 @@ window.ASCII = (() => {
     const tl = target != null ? lvl(target) : -1;
     return values.map((v) => { const l = lvl(v); return l === tl ? `<span class="t">${bars[l]}</span>` : bars[l]; }).join("");
   };
-  return { logo, moon, moonHTML, moonGrid, favicon, ground, rain, button, spark };
+  // box-drawing table. rows: {l, v, c, href} label/value (value right-aligned, class c, optional link),
+  // {raw, len, c} free line (len = visible length when raw contains html), {sep: true} rule.
+  const esc = (x) => String(x).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  const cut = (t, n) => (t.length <= n ? t : n <= 1 ? "…" : t.slice(0, n - 1) + "…");
+  const box = (title, rows, inner = 40) => {
+    const bd = (t) => `<span class="bd">${t}</span>`;
+    const H = "─";
+    const headLen = title ? title.length + 3 : 0; // "─ title " then rule to the corner
+    const out = [bd("┌") + (title ? bd(H + " ") + `<span class="bt">${esc(title)}</span>` + bd(" ") : "") + bd(H.repeat(Math.max(0, inner - headLen))) + bd("┐")];
+    for (const r of rows) {
+      if (r.sep) { out.push(bd("├" + H.repeat(inner) + "┤")); continue; }
+      if (r.raw != null) {
+        const len = r.len != null ? r.len : String(r.raw).length;
+        const pad = Math.max(0, inner - 2 - len);
+        const body = r.len != null ? r.raw : esc(cut(String(r.raw), inner - 2));
+        out.push(bd("│ ") + (r.c ? `<span class="${r.c}">${body}</span>` : body) + " ".repeat(pad) + bd(" │"));
+        continue;
+      }
+      const v = String(r.v == null ? "—" : r.v);
+      const room = inner - 2 - v.length - 1;
+      const l = cut(String(r.l), Math.max(1, room));
+      const gap = Math.max(1, inner - 2 - l.length - v.length);
+      const vs = `<span class="${r.c || "bv"}">${esc(v)}</span>`;
+      const val = r.href ? `<a href="${esc(r.href)}" target="_blank" rel="noopener">${vs}</a>` : vs;
+      out.push(bd("│ ") + esc(l) + " ".repeat(gap) + val + bd(" │"));
+    }
+    out.push(bd("└" + H.repeat(inner) + "┘"));
+    return out.join(NL);
+  };
+  return { logo, moon, moonHTML, moonGrid, favicon, ground, rain, button, spark, box, esc };
 })();

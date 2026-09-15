@@ -21,6 +21,7 @@
     "function discountBps() view returns (uint16)",
     "function bonusBps() view returns (uint16)",
     "function isPaused() view returns (bool)",
+    "function pausedUntil() view returns (uint64)",
     "function idleFor() view returns (uint256)",
     "function ethReserve() view returns (uint256)",
     "function crypt() view returns (uint256)",
@@ -68,18 +69,26 @@
   const engineR = new ethers.Contract(C.engine || ethers.ZeroAddress, ENGINE_ABI, provider);
   const splitterR = new ethers.Contract(C.splitter || ethers.ZeroAddress, SPLITTER_ABI, provider);
   let tokenR = new ethers.Contract(C.token || ethers.ZeroAddress, ERC20_ABI, provider);
-  let signer = null, account = null, decimals = 18, symbol = C.tokenSymbol || "TOKEN", params = null, currentBonusBps = 0;
+  let signer = null, account = null, decimals = 18, symbol = C.tokenSymbol || "TOKEN", currentBonusBps = 0;
+  let S = null;                 // last engine/splitter snapshot
+  let U = null;                 // last user snapshot
+  let addresses = {};           // footer table
 
   const loc = "en-US";
   const fmtTok = (v, d = 0) => Number(ethers.formatUnits(v, decimals)).toLocaleString(loc, { maximumFractionDigits: d });
+  const tok = (v) => fmtTok(v) + " " + symbol;
   const fmtEth = (v, d = 4) => Number(ethers.formatEther(v)).toLocaleString(loc, { maximumFractionDigits: d }) + " ETH";
   const fromQ96 = (q) => Number((q * 1000000n) / Q96) / 1e6;
   const fmtNum = (n, d = 2) => n.toLocaleString(loc, { maximumFractionDigits: d });
+  const pct = (bps) => (Number(bps) / 100).toFixed(2) + "%";
   const short = (a) => a.slice(0, 6) + "…" + a.slice(-4);
   const explorer = (path) => `${C.explorer}/${path}`;
   const clock = (s) => { const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), x = s % 60; return (h ? h + ":" : "") + String(m).padStart(2, "0") + ":" + String(x).padStart(2, "0"); };
-  const prompt = (text, err) => { const p = $("prompt"); p.className = "prompt" + (err ? " err" : ""); p.innerHTML = "&gt; " + text.replace(/</g, "&lt;") + '<span class="cur">█</span>'; };
+  const prompt = (text, err) => { const p = $("prompt"); p.className = "prompt" + (err ? " err" : ""); p.innerHTML = "&gt; " + A.esc(text) + '<span class="cur">█</span>'; };
   const SOURCE = ["no live market", "pons curve", "uniswap v4"];
+  const narrow = () => window.innerWidth < 720;
+  const W = () => 40;                          // inner width of a side-by-side box
+  const WIDE = () => (narrow() ? 40 : 84);     // inner width of a full-width box
 
   // ---------------------------------------------------------------- static art
   function paintHeader() {
@@ -116,71 +125,146 @@
   }
   window.addEventListener("hashchange", () => showTab(location.hash.slice(1), false));
 
-  // ---------------------------------------------------------------- chart (ascii sparkline)
+  // ---------------------------------------------------------------- boxes
+  const dash = () => "—";
+  function paintBoxes() {
+    if (!S) {
+      const empty = (t, n) => A.box(t, Array.from({ length: n }, () => ({ raw: "" })), W());
+      $("boxPrice").innerHTML = empty("PRICE", 5); $("boxEpoch").innerHTML = empty("EPOCH", 5);
+      $("boxReserves").innerHTML = empty("RESERVES", 6); $("boxFees").innerHTML = empty("FEES", 4);
+      $("boxBond").innerHTML = empty("BOND TERMS", 7); $("boxStake").innerHTML = empty("STAKING", 5);
+      return;
+    }
+    const p = S.params, disc = Number(S.discount), bon = Number(S.bonus);
+    const next = Number(S.lastSampleAt + S.epochLength) - Math.floor(Date.now() / 1000);
+    const nextPoke = !S.started ? (S.src ? "start first" : "waiting for market") : next <= 0 ? "now" : "in " + clock(next);
+    const tip = (S.ethReserve * BigInt(S.tipBps)) / 10000n;
+    const tBps = Number(S.tBps);
+
+    $("boxPrice").innerHTML = A.box("PRICE", [
+      { l: "spot", v: S.spot > 0n ? fmtNum(fromQ96(S.spot), 0) + " / ETH" : dash() },
+      { l: `target (${p.window}-epoch avg)`, v: S.target > 0n ? fmtNum(fromQ96(S.target), 0) + " / ETH" : dash() },
+      { l: "discount to target", v: pct(S.discount), c: disc > 0 ? "hi" : "bv" },
+      { l: "bond bonus now", v: pct(S.bonus), c: bon > 0 ? "hi" : "bv" },
+      { l: "market", v: SOURCE[S.src] || "?", c: "ac" },
+    ], W());
+
+    $("boxEpoch").innerHTML = A.box("EPOCH", [
+      { l: "epoch", v: S.epoch.toString() },
+      { l: "next poke", v: nextPoke, c: S.started && next <= 0 ? "hi" : "bv" },
+      { l: "samples", v: `${S.sampleCount} (min ${p.minSamples})` },
+      { l: "last sample", v: S.lastSampleAt > 0n ? new Date(Number(S.lastSampleAt) * 1000).toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" }) : dash() },
+      { l: "poke tip", v: fmtEth(tip < S.tipCap ? tip : S.tipCap, 5) },
+      { l: "new entries", v: S.paused ? "paused" : "open", c: S.paused ? "hi" : "bv" },
+    ], W());
+
+    $("boxReserves").innerHTML = A.box("RESERVES", [
+      { l: "ETH reserve (buybacks)", v: fmtEth(S.ethReserve) },
+      { l: "crypt, pays bonds", v: tok(S.crypt) },
+      { l: "bonds owed", v: tok(S.outstanding) },
+      { l: "bought back", v: tok(S.boughtBack) },
+      { l: "burned", v: tok(S.burned) },
+      { l: "total staked", v: tok(S.totalStaked) },
+    ], W());
+
+    $("boxFees").innerHTML = A.box("FEES", [
+      { l: "unclaimed on pons", v: fmtEth(S.pending), c: S.pending > 0n ? "hi" : "bv" },
+      { l: "harvested, total", v: fmtEth(S.harvested) },
+      { l: `to treasury (${tBps / 100}%)`, v: fmtEth(S.toT) },
+      { l: `to protocol (${(10000 - tBps) / 100}%)`, v: fmtEth(S.toP) },
+      { l: `  to stakers (${p.stakingShareBps / 100}%)`, v: "as ETH rewards", c: "dm" },
+      { l: "  the rest", v: "buyback reserve", c: "dm" },
+    ], W());
+
+    $("boxBond").innerHTML = A.box("BOND TERMS", [
+      { l: "discount to target", v: pct(S.discount), c: disc > 0 ? "hi" : "bv" },
+      { l: "bonus now", v: pct(S.bonus), c: bon > 0 ? "hi" : "bv" },
+      { l: "matures after", v: `${p.vestEpochs} epochs` },
+      { l: "burned on entry", v: `${p.entryBurnBps / 100}%` },
+      { l: "early exit penalty", v: `${p.penaltyBps / 100}%` },
+      { sep: true },
+      { l: "crypt, pays bonds", v: tok(S.crypt) },
+      { l: "bonds owed", v: tok(S.outstanding) },
+      { l: "status", v: bondStatus(), c: bon > 0 && S.started && !S.paused ? "hi" : "dm" },
+    ], W());
+
+    $("boxStake").innerHTML = A.box("STAKING", [
+      { l: "staker share of protocol ETH", v: `${p.stakingShareBps / 100}%` },
+      { l: "total staked", v: tok(S.totalStaked) },
+      { l: "ETH to protocol, total", v: fmtEth(S.toP) },
+      { sep: true },
+      { l: "your stake", v: U ? tok(U.staked) : "connect wallet", c: U ? "bv" : "dm" },
+      { l: "your ETH to claim", v: U ? fmtEth(U.earned, 6) : "connect wallet", c: U ? (U.earned > 0n ? "hi" : "bv") : "dm" },
+    ], W());
+  }
+
+  function bondStatus() {
+    if (!S.started) return "engine not started";
+    if (Number(S.sampleCount) < Number(S.params.minSamples)) return `open after ${S.params.minSamples} samples`;
+    if (S.paused) return "entries paused";
+    if (Number(S.bonus) === 0) return "closed · at or above target";
+    return "OPEN";
+  }
+
+  function paintContracts() {
+    const rows = [["engine", C.engine], ["splitter", C.splitter], ["token", addresses.token || C.token], ["curve", addresses.curve], ["staked (sLUNARRAY)", C.staked], ["treasury", addresses.treasury]]
+      .filter(([, a]) => a && a !== ethers.ZeroAddress)
+      .map(([l, a]) => ({ l, v: narrow() ? short(a) : a, href: explorer("address/" + a) }));
+    if (rows.length === 0) rows.push({ raw: "not deployed yet", c: "dm" });
+    $("boxContracts").innerHTML = A.box("CONTRACTS", rows, WIDE());
+  }
+
+  // ---------------------------------------------------------------- chart (ascii sparkline in a box)
   async function refreshChart() {
     try {
+      const inner = WIDE();
       const [cursor, count, target, spot] = await mcall([{ c: engineR, f: "sampleCursor" }, { c: engineR, f: "sampleCount" }, { c: engineR, f: "target" }, { c: engineR, f: "spot" }]);
-      const n = Math.min(Number(count), 60);
-      if (n === 0) return;
+      const n = Math.min(Number(count), inner - 3);
+      if (n === 0) { $("boxChart").innerHTML = A.box("PRICE HISTORY · ETH per 1M tokens", [{ raw: "no samples yet", c: "dm" }], inner); return; }
       const idx = []; for (let i = n; i >= 1; i--) idx.push(Number(cursor) - i);
       const samples = await mcall(idx.map((i) => ({ c: engineR, f: "sampleAt", a: [i] })));
       const toPrice = (q) => (q > 0n ? 1e6 / fromQ96(q) : 0);
       const vals = samples.map(toPrice); if (spot > 0n) vals.push(toPrice(spot));
-      $("spark").innerHTML = A.spark(vals, target > 0n ? toPrice(target) : null);
-      $("sparkNote").textContent = `price history · last ${n} epochs · ETH per 1M tokens`;
+      const t = target > 0n ? toPrice(target) : null;
+      const lo = Math.min(...vals), hi = Math.max(...vals);
+      const f = (x) => x.toLocaleString(loc, { maximumFractionDigits: 4 });
+      const items = [`${vals.length} epochs, oldest → now`, `low ${f(lo)} · high ${f(hi)}`];
+      if (t != null) items.push(`target ${f(t)} = ▮`);
+      const mark = (x) => A.esc(x).replace("▮", '<span class="hi">▮</span>');
+      const one = items.join(" · ");
+      const legend = one.length <= inner - 2 ? [{ raw: mark(one), len: one.length, c: "dm" }] : items.map((x) => ({ raw: mark(x), len: x.length, c: "dm" }));
+      $("boxChart").innerHTML = A.box("PRICE HISTORY · ETH per 1M tokens", [
+        { raw: `<span class="spark ac">${A.spark(vals, t)}</span>`, len: vals.length },
+        ...legend,
+      ], inner);
     } catch (e) { console.warn("chart", e); }
   }
 
   // ---------------------------------------------------------------- stats
   async function refresh() {
     try {
-      const E = (f) => ({ c: engineR, f }), S = (f) => ({ c: splitterR, f });
-      const [started, source, epoch, epochLength, lastSampleAt, sampleCount, spot, target, discount, bonus, paused, ethReserve, crypt, totalStaked, burned, boughtBack, outstanding, p, tipBps, tipCap,
+      const E = (f) => ({ c: engineR, f }), Sp = (f) => ({ c: splitterR, f });
+      const [started, source, epoch, epochLength, lastSampleAt, sampleCount, spot, target, discount, bonus, paused, ethReserve, crypt, totalStaked, burned, boughtBack, outstanding, params, tipBps, tipCap,
         pending, tBps, harvested, toT, toP] = await mcall([
         E("started"), E("priceSource"), E("epoch"), E("epochLength"), E("lastSampleAt"), E("sampleCount"), E("spot"), E("target"), E("discountBps"), E("bonusBps"), E("isPaused"),
         E("ethReserve"), E("crypt"), E("totalStaked"), E("totalBurned"), E("totalBoughtBack"), E("bondedOutstanding"), E("params"), E("TIP_BPS"), E("TIP_CAP"),
-        S("pending"), S("treasuryBps"), S("totalHarvested"), S("totalToTreasury"), S("totalToProtocol"),
+        Sp("pending"), Sp("treasuryBps"), Sp("totalHarvested"), Sp("totalToTreasury"), Sp("totalToProtocol"),
       ]);
-      params = p; currentBonusBps = Number(bonus);
-      const src = Number(source);
+      const P = Object.fromEntries(["maxBonusBps", "bandBps", "entryBurnBps", "penaltyBps", "releaseBps", "stakingShareBps", "window", "vestEpochs", "minSamples"].map((k) => [k, Number(params[k])]));
+      S = { started, src: Number(source), epoch, epochLength, lastSampleAt, sampleCount, spot, target, discount, bonus, paused, ethReserve, crypt, totalStaked, burned, boughtBack, outstanding, params: P, tipBps, tipCap, pending, tBps, harvested, toT, toP };
+      currentBonusBps = Number(bonus);
       const next = Number(lastSampleAt + epochLength) - Math.floor(Date.now() / 1000);
-      const state = !started ? (src ? "READY TO START" : "WAITING FOR MARKET") : paused ? "ENTRIES PAUSED" : Number(discount) > 0 ? "BONDS OPEN" : "ABOVE TARGET";
+      const state = !started ? (S.src ? "READY TO START" : "WAITING FOR MARKET") : paused ? "ENTRIES PAUSED" : Number(discount) > 0 ? "BONDS OPEN" : "ABOVE TARGET";
       const stateTag = state === "BONDS OPEN" ? `<b>${state}</b>` : state === "ENTRIES PAUSED" ? `<i>${state}</i>` : state;
-      $("statusbar").innerHTML = ` EPOCH ${epoch}  ${stateTag}  ${SOURCE[src] || "?"}  next poke ${!started ? "—" : next <= 0 ? "now" : "in " + clock(next)}  spot ${spot > 0n ? fmtNum(fromQ96(spot), 0) : "—"}  target ${target > 0n ? fmtNum(fromQ96(target), 0) : "—"}  ${(Number(discount) / 100).toFixed(2)}% below`;
-      $("discount").textContent = $("discount2").textContent = (Number(discount) / 100).toFixed(2);
-      $("bonus").textContent = $("bonus2").textContent = (Number(bonus) / 100).toFixed(2);
-      $("spot").textContent = spot > 0n ? fmtNum(fromQ96(spot), 0) + " / ETH" : "—";
-      $("source").textContent = SOURCE[src] || "—";
-      $("target").textContent = target > 0n ? fmtNum(fromQ96(target), 0) + " / ETH" : "—";
-      $("window").textContent = p.window.toString();
-      $("epoch").textContent = epoch.toString();
-      $("nextPoke").textContent = !started ? "after start" : next <= 0 ? "now" : clock(next);
-      $("samples").textContent = `${sampleCount} (min ${p.minSamples})`;
-      $("ethReserve").textContent = fmtEth(ethReserve);
-      $("crypt").textContent = $("crypt2").textContent = fmtTok(crypt) + " " + symbol;
-      $("outstanding").textContent = $("outstanding2").textContent = fmtTok(outstanding) + " " + symbol;
-      $("totalStaked").textContent = $("totalStaked2").textContent = fmtTok(totalStaked) + " " + symbol;
-      $("burned").textContent = fmtTok(burned) + " " + symbol;
-      $("boughtBack").textContent = fmtTok(boughtBack) + " " + symbol;
-      $("lastSample").textContent = lastSampleAt > 0n ? new Date(Number(lastSampleAt) * 1000).toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" }) : "—";
-      const tip = (ethReserve * BigInt(tipBps)) / 10000n;
-      $("tip").textContent = fmtEth(tip < tipCap ? tip : tipCap, 5);
-      $("vest").textContent = p.vestEpochs.toString();
-      $("penalty").textContent = (Number(p.penaltyBps) / 100).toString();
-      $("entryBurn").textContent = (Number(p.entryBurnBps) / 100).toString();
-      $("stakingShare").textContent = (Number(p.stakingShareBps) / 100).toString();
+      $("statusbar").innerHTML = ` EPOCH ${epoch}  ${stateTag}  ${SOURCE[S.src] || "?"}  next poke ${!started ? "—" : next <= 0 ? "now" : "in " + clock(next)}  spot ${spot > 0n ? fmtNum(fromQ96(spot), 0) : "—"}  target ${target > 0n ? fmtNum(fromQ96(target), 0) : "—"}  ${(Number(discount) / 100).toFixed(2)}% below`;
       $("pokeBtn").textContent = started ? "POKE" : "START";
       $("pokeBtn").disabled = started ? next > 0 : spot === 0n;
-      $("bondBtn").disabled = !started || Number(bonus) === 0 || Number(sampleCount) < Number(p.minSamples) || paused;
-      $("bondHelp").textContent = !started ? "bonds open once the engine is started (anyone can start it as soon as the curve is live)." : Number(sampleCount) < Number(p.minSamples) ? `bonds open after ${p.minSamples} samples.` : Number(bonus) === 0 ? "price is at or above target. bonds open when it drops below." : paused ? "new entries are paused." : "";
-      $("pending").textContent = fmtEth(pending);
-      $("treasuryBps").textContent = (Number(tBps) / 100).toString();
-      $("harvested").textContent = fmtEth(harvested);
-      $("toTreasury").textContent = fmtEth(toT);
-      $("toProtocol").textContent = $("toProtocol2").textContent = fmtEth(toP);
+      $("bondBtn").disabled = !started || Number(bonus) === 0 || Number(sampleCount) < Number(params.minSamples) || paused;
+      $("bondHelp").textContent = !started ? "bonds open once the engine is started (anyone can start it as soon as the curve is live)." : Number(sampleCount) < Number(params.minSamples) ? `bonds open after ${params.minSamples} samples.` : Number(bonus) === 0 ? "price is at or above target. bonds open when it drops below." : paused ? "new entries are paused." : "";
       $("harvestBtn").disabled = pending === 0n;
-      quoteBond();
       if (account) await refreshUser();
+      paintBoxes();
+      quoteBond();
       if (!$("prompt").dataset.busy) prompt(account ? `connected ${short(account)} · rpc ok` : "rpc ok · not connected");
     } catch (e) {
       console.error(e);
@@ -196,8 +280,7 @@
 
   async function refreshUser() {
     const [bal, st, earned, ids, epoch] = await mcall([{ c: tokenR, f: "balanceOf", a: [account] }, { c: engineR, f: "staked", a: [account] }, { c: engineR, f: "earned", a: [account] }, { c: engineR, f: "bondIdsOf", a: [account] }, { c: engineR, f: "epoch" }]);
-    $("myStake").textContent = fmtTok(st) + " " + symbol;
-    $("myEarned").textContent = fmtEth(earned, 6);
+    U = { bal, staked: st, earned };
     $("bondMax").dataset.max = ethers.formatUnits(bal, decimals);
     $("stakeMax").dataset.max = ethers.formatUnits(bal, decimals);
     const tbody = $("myBonds");
@@ -224,8 +307,8 @@
 
   function quoteBond() {
     const amt = parseFloat(($("bondAmt").value || "0").replace(",", "."));
-    if (!params || !amt) return ($("bondQuote").textContent = "—");
-    const principal = amt * (1 - Number(params.entryBurnBps) / 10000);
+    if (!S || !amt) return ($("bondQuote").textContent = "—");
+    const principal = amt * (1 - Number(S.params.entryBurnBps) / 10000);
     const out = principal * (1 + currentBonusBps / 10000);
     $("bondQuote").textContent = `${fmtNum(out)} ${symbol} (+${(currentBonusBps / 100).toFixed(2)}%)`;
   }
@@ -255,6 +338,7 @@
       $("connectBtn").title = account;
       prompt(`connected ${short(account)}`);
       await refreshUser();
+      paintBoxes();
     } catch (e) { prompt(e.shortMessage || e.message, true); }
   }
   const engineW = () => new ethers.Contract(C.engine, ENGINE_ABI, signer);
@@ -290,6 +374,8 @@
 
   paintHeader();
   showTab(location.hash.slice(1), false);
+  paintBoxes();
+  paintContracts();
   $("bondForm").onsubmit = (e) => { e.preventDefault(); send(async () => { const a = parseAmt("bondAmt"); await ensureAllowance(a); return engineW().bond(a, Math.max(0, currentBonusBps - 50)); }, "bond created"); };
   $("stakeForm").onsubmit = (e) => { e.preventDefault(); send(async () => { const a = parseAmt("stakeAmt"); await ensureAllowance(a); return engineW().stake(a); }, "staked"); };
   $("unstakeBtn").onclick = () => send(() => engineW().unstake(parseAmt("stakeAmt")), "unstaked");
@@ -300,6 +386,7 @@
   $("bondMax").onclick = () => { $("bondAmt").value = $("bondMax").dataset.max || ""; quoteBond(); };
   $("stakeMax").onclick = () => { $("stakeAmt").value = $("stakeMax").dataset.max || ""; };
   $("bondAmt").oninput = quoteBond;
+  let rsz; window.addEventListener("resize", () => { clearTimeout(rsz); rsz = setTimeout(() => { paintBoxes(); paintContracts(); refreshChart(); }, 200); });
 
   const ZERO = "0x0000000000000000000000000000000000000000";
   const disableActions = (on) => ["bondBtn", "stakeBtn", "unstakeBtn", "claimBtn", "harvestBtn", "pokeBtn", "settleBtn"].forEach((id) => { $(id).disabled = on; });
@@ -334,8 +421,8 @@
       $("bondUnit").textContent = symbol; $("stakeUnit").textContent = symbol;
     } catch (e) { console.warn("token meta", e); }
     const [treasury, curve] = await Promise.all([splitterR.treasury().catch(() => null), engineR.curve().catch(() => null)]);
-    $("addrs").innerHTML = [["engine", C.engine], ["splitter", C.splitter], ["token", C.token], ["curve", curve && curve !== ZERO ? curve : null], ["staked", C.staked], ["treasury", treasury]].filter(([, a]) => a)
-      .map(([k, a]) => `${k} <a href="${explorer("address/" + a)}" target="_blank" rel="noopener">${a}</a>`).join("<br>");
+    addresses = { token: C.token, treasury, curve };
+    paintContracts();
     await refresh();
     refreshChart();
     setInterval(refresh, 20000);

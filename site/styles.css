@@ -72,6 +72,19 @@ section { margin-top: 34px; }
 .kv .dots { flex: 1; border-bottom: 1px dotted var(--dim); transform: translateY(-4px); }
 .kv b { font-weight: normal; color: var(--bright); white-space: nowrap; }
 .kv b.y { color: var(--hi); }
+/* box-drawing tables */
+.boxes { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 24px; }
+.boxes .wide { grid-column: 1 / -1; }
+pre.box { color: var(--fg); line-height: 1.25; overflow-x: auto; }
+.box .bd { color: var(--dim); }
+.box .bt { color: var(--bright); }
+.box .bv { color: var(--bright); }
+.box .hi { color: var(--hi); }
+.box .ac { color: var(--accent); }
+.box .dm { color: var(--dim); }
+.box a { color: var(--bright); }
+.box a:hover .bv { color: var(--hi); }
+.box .spark { font-size: inherit; letter-spacing: 0; overflow: visible; }
 .big { color: var(--accent); font-size: 28px; line-height: 1; margin: 4px 0 6px; }
 .big small { color: var(--fg); font-size: 14px; margin-left: 6px; }
 .spark { color: var(--accent); font-size: 22px; line-height: 1; letter-spacing: 1px; white-space: pre; overflow-x: auto; }
@@ -132,6 +145,7 @@ footer a { color: var(--fg); }
 @media (max-width: 720px) {
   body { font-size: 12.5px; }
   .cols { grid-template-columns: 1fr; }
+  .boxes { grid-template-columns: 1fr; }
   .hdr .rain { display: none; }
   .hdr .connect { position: static; display: flex; justify-content: flex-end; margin-bottom: 4px; }
   .hdr .logo { font-size: 7px; }   /* 8 block letters must fit a phone screen */
