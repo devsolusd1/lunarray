@@ -216,7 +216,8 @@
     const left = D.unlockAt ? Math.max(0, Number(D.unlockAt) - now) : 0;
     const days = Math.floor(left / 86400), hours = Math.floor((left % 86400) / 3600);
     const lockState = !C.devlock ? "not locked yet" : left > 0 ? `locked until ${dateOf(D.unlockAt)} (${days}d ${hours}h left)` : "lock open";
-    strip.innerHTML = ` DEV WALLET  ${short(C.devWallet)}  ·  <b>${pctOf(locked, D.supply)} of supply locked</b>  ·  ${pctOf(free, D.supply)} unlocked in the wallet  ·  ${A.esc(lockState)}`;
+    const link = (a) => `<a href="${explorer("address/" + a)}" target="_blank" rel="noopener">${short(a)}</a>`;
+    strip.innerHTML = ` DEV WALLET  ${link(C.devWallet)}  ·  <b>${pctOf(locked, D.supply)} of supply locked</b>  ·  ${pctOf(free, D.supply)} unlocked in the wallet  ·  ${A.esc(lockState)}${C.devlock ? `  ·  lock ${link(C.devlock)}` : ""}`;
     // narrow boxes drop the symbol so label + amount + share fit in 40 columns
     const amt = (v) => (narrow() ? `${fmtTok(v)} · ${pctOf(v, D.supply)}` : `${tok(v)}  ${pctOf(v, D.supply)}`);
     const rows = [
