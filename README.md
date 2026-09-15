@@ -36,9 +36,17 @@ Tudo é lido do `.env` (copie de `.env.example`). Preencha `DEPLOYER_PK`, `TREAS
    ```bash
    npx hardhat run scripts/1-deploy-splitter.js --network robinhood
    ```
-2. **Launch na Pons** (site da Pons ou `launchAndBuy` no router `0xe33E…2948`):
-   `creatorFeeRecipient = <FeeSplitter do passo 1>`, `creatorTaxBps = 500` (5%), `pairToken = ETH`.
-   A taxa de criador **não muda depois**; o recipient muda só com timelock de 3 dias.
+2. **Launch na Pons pelo código** (o site da Pons não deixa anexar o website; pelo script logo, descrição,
+   website e socials vão on-chain no próprio launch e a Pons lê do contrato do token):
+   ```bash
+   DRY_RUN=1 npx hardhat run scripts/0-launch-pons.js --network robinhood   # simula: taxa, token/curva previstos, gas
+   npx hardhat run scripts/0-launch-pons.js --network robinhood             # envia
+   ```
+   Lê `LAUNCH_*`, `CREATOR_TAX_BPS`, `DEV_BUY_ETH`, `SNIPE_EXEMPT` do `.env`; `creatorFeeRecipient = SPLITTER`,
+   `pairToken = ETH`, `buybackEnabled = false` (o buyback é do nosso engine). Com `DEV_BUY_ETH` usa o router
+   `launchAndBuy` (compra isenta de snipe tax na mesma tx); sem, usa `launchToken` na factory.
+   A taxa de criador **não muda depois**; o recipient muda só com timelock de 3 dias. Tudo que vai no launch
+   (nome, símbolo, logo, descrição, links) é imutável.
 3. **Logo depois do launch** — BondEngine. O script lê o registro da launch na factory da Pons (curva, poolFee,
    tickSpacing), a tesouraria do splitter, e faz o wiring do splitter (uma vez só):
    ```bash
