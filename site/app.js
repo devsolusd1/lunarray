@@ -55,7 +55,13 @@
     "function treasury() view returns (address)",
     "function harvest() returns (uint256)",
   ];
+  const LOCK_ABI = [
+    "function locked() view returns (uint256)",
+    "function unlockAt() view returns (uint64)",
+    "function beneficiary() view returns (address)",
+  ];
   const ERC20_ABI = [
+    "function totalSupply() view returns (uint256)",
     "function balanceOf(address) view returns (uint256)",
     "function allowance(address,address) view returns (uint256)",
     "function approve(address,uint256) returns (bool)",
@@ -72,6 +78,7 @@
   let signer = null, account = null, decimals = 18, symbol = C.tokenSymbol || "TOKEN", currentBonusBps = 0;
   let S = null;                 // last engine/splitter snapshot
   let U = null;                 // last user snapshot
+  let D = null;                 // dev allocation snapshot
   let addresses = {};           // footer table
 
   const loc = "en-US";
@@ -198,6 +205,49 @@
     ], W());
   }
 
+  const pctOf = (v, total) => (total > 0n ? (Number((v * 1000000n) / total) / 10000).toFixed(2) : "0.00") + "%";
+  const dateOf = (ts) => new Date(Number(ts) * 1000).toISOString().slice(0, 10);
+  function paintDev() {
+    const strip = $("devstrip");
+    if (!C.devWallet) { strip.hidden = true; $("boxDev").hidden = true; return; }
+    if (!D) { strip.innerHTML = " DEV WALLET  ·  loading"; $("boxDev").innerHTML = A.box("DEV ALLOCATION", [{ raw: "" }, { raw: "" }, { raw: "" }], WIDE()); return; }
+    const free = D.devBal, locked = D.locked || 0n; // tokens still in the wallet are the unlocked part
+    const now = Math.floor(Date.now() / 1000);
+    const left = D.unlockAt ? Math.max(0, Number(D.unlockAt) - now) : 0;
+    const days = Math.floor(left / 86400), hours = Math.floor((left % 86400) / 3600);
+    const lockState = !C.devlock ? "not locked yet" : left > 0 ? `locked until ${dateOf(D.unlockAt)} (${days}d ${hours}h left)` : "lock open";
+    strip.innerHTML = ` DEV WALLET  ${short(C.devWallet)}  ·  <b>${pctOf(locked, D.supply)} of supply locked</b>  ·  ${pctOf(free, D.supply)} unlocked in the wallet  ·  ${A.esc(lockState)}`;
+    // narrow boxes drop the symbol so label + amount + share fit in 40 columns
+    const amt = (v) => (narrow() ? `${fmtTok(v)} · ${pctOf(v, D.supply)}` : `${tok(v)}  ${pctOf(v, D.supply)}`);
+    const rows = [
+      { l: "total supply", v: narrow() ? fmtTok(D.supply) : tok(D.supply) },
+      { l: narrow() ? "wallet, unlocked" : "dev wallet holds (unlocked)", v: amt(free), c: free > 0n ? "hi" : "bv" },
+      { l: narrow() ? "locked in DevLock" : "locked in DevLock (cannot move)", v: amt(locked), c: locked > 0n ? "ac" : "dm" },
+      { l: "dev total", v: amt(free + locked) },
+    ];
+    if (C.devlock) {
+      rows.push({ sep: true });
+      rows.push({ l: "unlock date", v: `${dateOf(D.unlockAt)} · ${left > 0 ? days + "d " + hours + "h left" : "open"}`, c: left > 0 ? "bv" : "hi" });
+      rows.push({ l: "who can withdraw after", v: narrow() ? short(D.beneficiary) : D.beneficiary, href: explorer("address/" + D.beneficiary) });
+      rows.push({ l: "lock contract", v: narrow() ? short(C.devlock) : C.devlock, href: explorer("address/" + C.devlock) });
+      rows.push({ raw: narrow() ? "date can only be extended, never cut" : "the date can only be extended, never shortened. no owner, no other functions.", c: "dm" });
+    } else {
+      rows.push({ raw: "no lock contract yet", c: "dm" });
+    }
+    $("boxDev").innerHTML = A.box(narrow() ? `DEV ALLOCATION · ${symbol}` : "DEV ALLOCATION", rows, WIDE());
+  }
+  async function refreshDev() {
+    if (!C.devWallet) return;
+    try {
+      const calls = [{ c: tokenR, f: "totalSupply" }, { c: tokenR, f: "balanceOf", a: [C.devWallet] }];
+      const lockR = C.devlock ? new ethers.Contract(C.devlock, LOCK_ABI, provider) : null;
+      if (lockR) calls.push({ c: lockR, f: "locked" }, { c: lockR, f: "unlockAt" }, { c: lockR, f: "beneficiary" });
+      const [supply, devBal, locked, unlockAt, beneficiary] = await mcall(calls);
+      D = { supply, devBal, locked, unlockAt, beneficiary };
+    } catch (e) { console.warn("dev allocation", e); }
+    paintDev();
+  }
+
   function bondStatus() {
     if (!S.started) return "engine not started";
     if (Number(S.sampleCount) < Number(S.params.minSamples)) return `open after ${S.params.minSamples} samples`;
@@ -207,7 +257,7 @@
   }
 
   function paintContracts() {
-    const rows = [["engine", C.engine], ["splitter", C.splitter], ["token", addresses.token || C.token], ["curve", addresses.curve], ["staked (sLUNARRAY)", C.staked], ["treasury", addresses.treasury]]
+    const rows = [["engine", C.engine], ["splitter", C.splitter], ["token", addresses.token || C.token], ["curve", addresses.curve], ["staked (sLUNARRAY)", C.staked], ["dev wallet", C.devWallet], ["dev lock", C.devlock], ["treasury", addresses.treasury]]
       .filter(([, a]) => a && a !== ethers.ZeroAddress)
       .map(([l, a]) => ({ l, v: narrow() ? short(a) : a, href: explorer("address/" + a) }));
     if (rows.length === 0) rows.push({ raw: "not deployed yet", c: "dm" });
@@ -375,6 +425,7 @@
   paintHeader();
   showTab(location.hash.slice(1), false);
   paintBoxes();
+  paintDev();
   paintContracts();
   $("bondForm").onsubmit = (e) => { e.preventDefault(); send(async () => { const a = parseAmt("bondAmt"); await ensureAllowance(a); return engineW().bond(a, Math.max(0, currentBonusBps - 50)); }, "bond created"); };
   $("stakeForm").onsubmit = (e) => { e.preventDefault(); send(async () => { const a = parseAmt("stakeAmt"); await ensureAllowance(a); return engineW().stake(a); }, "staked"); };
@@ -386,7 +437,7 @@
   $("bondMax").onclick = () => { $("bondAmt").value = $("bondMax").dataset.max || ""; quoteBond(); };
   $("stakeMax").onclick = () => { $("stakeAmt").value = $("stakeMax").dataset.max || ""; };
   $("bondAmt").oninput = quoteBond;
-  let rsz; window.addEventListener("resize", () => { clearTimeout(rsz); rsz = setTimeout(() => { paintBoxes(); paintContracts(); refreshChart(); }, 200); });
+  let rsz; window.addEventListener("resize", () => { clearTimeout(rsz); rsz = setTimeout(() => { paintBoxes(); paintDev(); paintContracts(); refreshChart(); }, 200); });
 
   const ZERO = "0x0000000000000000000000000000000000000000";
   const disableActions = (on) => ["bondBtn", "stakeBtn", "unstakeBtn", "claimBtn", "harvestBtn", "pokeBtn", "settleBtn"].forEach((id) => { $(id).disabled = on; });
@@ -424,7 +475,9 @@
     paintContracts();
     await refresh();
     refreshChart();
+    refreshDev();
     setInterval(refresh, 20000);
     setInterval(refreshChart, 60000);
+    setInterval(refreshDev, 30000);
   })();
 })();

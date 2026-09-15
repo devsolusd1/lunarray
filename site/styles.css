@@ -55,6 +55,8 @@ section.tab[hidden] { display: none; }
 .status b { font-weight: normal; background: var(--accent); color: var(--bg); padding: 0 6px; }
 .status i { font-style: normal; background: var(--deep2); color: var(--bright); padding: 0 6px; }
 .prompt { margin: 8px 0 0; white-space: pre-wrap; min-height: 1.4em; }
+.devstrip { margin-top: 10px; padding: 1px 8px; background: var(--deep); color: var(--bright); border-left: 3px solid var(--hi); white-space: pre-wrap; }
+.devstrip b { font-weight: normal; color: var(--hi); }
 .prompt .cur { background: var(--accent); color: var(--accent); animation: cur 1.4s steps(1) infinite; }
 .prompt.err { color: var(--red); }
 @keyframes cur { 50% { opacity: 0; } }

@@ -29,6 +29,10 @@ async function main() {
   const splitter = await (await ethers.getContractFactory("FeeSplitter")).deploy(await escrow.getAddress(), treasury.address, 6000);
   await splitter.setProtocol(await engine.getAddress());
   const staked = await (await ethers.getContractFactory("StakedLunarray")).deploy(await token.getAddress(), await engine.getAddress());
+  // dev allocation: the deployer holds 25M of the mock supply; 16.5M of it locked for 180 days, 8.5M stay unlocked
+  const devlock = await (await ethers.getContractFactory("DevLock")).deploy(await token.getAddress(), treasury.address, Math.floor(Date.now() / 1000) + 180 * 86400);
+  await token.approve(await devlock.getAddress(), ethers.MaxUint256);
+  await devlock.deposit(ethers.parseEther("16500000"));
 
   // curve phase: the engine starts right away and buys back on the curve with the protocol share of the fees
   await engine.start();
@@ -59,6 +63,8 @@ window.BOND_CONFIG = Object.assign(window.BOND_CONFIG || {}, {
   splitter: "${await splitter.getAddress()}",
   token: "${await token.getAddress()}",
   staked: "${await staked.getAddress()}",
+  devWallet: "${deployer.address}",
+  devlock: "${await devlock.getAddress()}",
   tokenSymbol: "MOCK",
   x: "",
   treasuryBps: 6000,

@@ -162,6 +162,7 @@ ENGINE=0x… SPLITTER=0x… LOOP=1 npx hardhat run scripts/3-start-and-poke.js -
       <li>No proxy, no upgrade path. The bytecode you verify is the bytecode that runs forever.</li>
       <li>The token itself is the unmodified Pons launcher token: fixed supply, no tax logic, no owner.</li>
       <li>Reentrancy guards on every state-changing entry point; ETH is only sent via <code>call</code> after state updates. ETH coming back from the curve during a buy is recognised by sender and never split as revenue.</li>
+      <li><b>Dev allocation.</b> The tokens the dev wallet bought at launch sit in <code>DevLock</code>: a time lock with a fixed beneficiary, no owner and no other function. Nothing leaves before <code>unlockAt</code>, and the date can only be extended. The terminal shows the locked share of supply live, read from the lock contract.</li>
     </ul>
 
     <h2 id="risks">Risks</h2>
@@ -181,6 +182,7 @@ ENGINE=0x… SPLITTER=0x… LOOP=1 npx hardhat run scripts/3-start-and-poke.js -
       <tr><td>FeeSplitter</td><td id="cSplitter">see config</td></tr>
       <tr><td>Token</td><td id="cToken">see config</td></tr>
       <tr><td>sLUNARRAY</td><td id="cStaked">see config</td></tr>
+      <tr><td>DevLock (dev allocation)</td><td id="cDevlock">see config</td></tr>
       <tr><td>Pons curve</td><td>immutable <code>curve()</code> on the engine</td></tr>
       <tr><td>Pons Factory</td><td>0x7eD598BcEf8bd9Edd8C97A195C6d13f40801EC7e</td></tr>
       <tr><td>Pons FeeEscrow</td><td>0xd3AFEB2a57f70eF218Aa82451c51B2fb0416Ac9e</td></tr>
@@ -219,6 +221,7 @@ ENGINE=0x… SPLITTER=0x… LOOP=1 npx hardhat run scripts/3-start-and-poke.js -
     document.getElementById("cSplitter").innerHTML = link(C.splitter);
     document.getElementById("cToken").innerHTML = link(C.token);
     document.getElementById("cStaked").innerHTML = link(C.staked);
+    document.getElementById("cDevlock").innerHTML = link(C.devlock);
     document.getElementById("tBps").textContent = (C.treasuryBps ? C.treasuryBps / 100 + "%" : "the treasury share");
   })();
 </script>
