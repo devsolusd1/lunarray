@@ -1,4 +1,4 @@
-// Production config (Robinhood Chain mainnet). Fill in after deploying (empty = "not deployed yet" on the site).
+// Production config (Robinhood Chain mainnet). Deployed 2026-09-15.
 window.BOND_CONFIG = {
   name: "LUNARRAY",
   chainId: 4663,
@@ -11,10 +11,10 @@ window.BOND_CONFIG = {
   ],
   multicall: "0xcA11bde05977b3631167028862bE2a173976CA11", // Multicall3 (verified deployed on chain 4663)
   explorer: "https://robinhoodchain.blockscout.com",
-  engine: "",       // BondEngine
-  splitter: "",     // FeeSplitter (creatorFeeRecipient on Pons)
-  token: "",        // LUNARRAY token created by Pons v2
-  staked: "",       // StakedLunarray (sLUNARRAY, liquid staking receipt)
+  engine: "0x7382f1bB63d53E52AB12e7Cc32C7DE8C77A26Dcb",   // BondEngine
+  splitter: "0x56638B0d2139Cf39B0C75beAc4a224B8471aD941", // FeeSplitter (creatorFeeRecipient on Pons)
+  token: "0x7340685A52e6dC3a8a99f40E856a9C2909227b8C",    // LUNARRAY token created by Pons v2 (curve 0x356DEEbFEf740EC4c182413d36920f8d9EF4f7F6)
+  staked: "0x1EFd5B9CE223562073d53F917c52Ae4F7a3e3463",   // StakedLunarray (sLUNARRAY, liquid staking receipt)
   tokenSymbol: "LUNARRAY",
   x: "",            // https://x.com/... once the account exists
   treasuryBps: 6000, // creator tax 5%: 3% treasury (60% of every harvest) + 2% protocol
