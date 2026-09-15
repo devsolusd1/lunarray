@@ -408,7 +408,6 @@
     $("chainLabel").textContent = `· ${C.chainName.toLowerCase()} · chain ${C.chainId}`;
     const links = [];
     if (C.x) links.push(`x <a href="${C.x}" target="_blank" rel="noopener">${C.x.replace("https://", "")}</a>`);
-    if (C.github) links.push(`github <a href="${C.github}" target="_blank" rel="noopener">${C.github.replace("https://", "")}</a>`);
     $("social").innerHTML = links.join(" · ");
     $("stakedLink").innerHTML = C.staked ? `<a href="${explorer("address/" + C.staked)}" target="_blank" rel="noopener">${short(C.staked)}</a>` : "not deployed yet";
     if (!(await preflight())) { setInterval(async () => { if (await preflight()) location.reload(); }, 60000); return; }

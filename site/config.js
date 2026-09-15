@@ -17,6 +17,5 @@ window.BOND_CONFIG = {
   staked: "",       // StakedLunarray (sLUNARRAY, liquid staking receipt)
   tokenSymbol: "LUNARRAY",
   x: "",            // https://x.com/... once the account exists
-  github: "https://github.com/devsolusd1/lunarray",
   treasuryBps: 6000, // creator tax 5%: 3% treasury (60% of every harvest) + 2% protocol
 };
