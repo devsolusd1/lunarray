@@ -36,6 +36,9 @@ pre, .art { margin: 0; font-family: inherit; white-space: pre; }
 .hdr .logo { color: var(--bright); margin-top: 2px; }
 .hdr .tag { color: var(--fg); margin-top: 10px; }
 .hdr .ground { color: var(--dim); margin-top: 10px; overflow: hidden; }
+.hdr .connect { position: absolute; top: 6px; right: 0; z-index: 2; }
+.hdr .connect .abtn { color: var(--accent); }
+.hdr .connect .abtn:hover, .hdr .connect .abtn.on { color: var(--hi); }
 
 /* ascii buttons */
 .abar { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 14px; margin: 18px 0 10px; }
@@ -43,6 +46,9 @@ pre, .art { margin: 0; font-family: inherit; white-space: pre; }
 .abtn:hover, .abtn.on { color: var(--hi); }
 .abtn .sh { color: var(--dim); }
 .abtn.primary { color: var(--accent); }
+.tabs .abtn.on { color: var(--bright); }
+.tabs .abtn.on .sh { color: var(--accent); }
+section.tab[hidden] { display: none; }
 
 /* status bar + prompt */
 .status { background: var(--deep); color: var(--bright); padding: 1px 8px; white-space: pre-wrap; margin-top: 12px; border-left: 3px solid var(--accent); }
@@ -127,5 +133,6 @@ footer a { color: var(--fg); }
   body { font-size: 12.5px; }
   .cols { grid-template-columns: 1fr; }
   .hdr .rain { display: none; }
+  .hdr .connect { position: static; display: flex; justify-content: flex-end; margin-bottom: 4px; }
   .hdr .logo { font-size: 7px; }   /* 8 block letters must fit a phone screen */
 }

@@ -88,17 +88,33 @@
     A.favicon();
     $("rain").textContent = A.rain(88, 14);
     $("ground").textContent = A.ground(120);
+    const cb = $("connectBtn");
+    cb.innerHTML = `<pre>${A.button("CONNECT")}</pre>`;
+    cb.onclick = (e) => { e.preventDefault(); connect(); };
     const bar = $("abar");
-    const items = [["CONNECT", "#connect", "connectBtn"], ["STAKE", "#stake"], ["BOND", "#bond"], ["DASHBOARD", "#dashboard"], ["NFO", "docs.html"]];
-    if (C.x) items.push(["X", C.x, null, true]);
-    items.forEach(([label, href, id, ext]) => {
+    TABS.forEach(([label, id]) => {
       const a = document.createElement("a");
-      a.className = "abtn"; a.href = href; a.innerHTML = `<pre>${A.button(label)}</pre>`;
-      if (ext) { a.target = "_blank"; a.rel = "noopener"; a.title = href.replace("https://", ""); }
-      if (id) { a.id = id; a.onclick = (e) => { e.preventDefault(); connect(); }; }
+      a.className = "abtn"; a.href = "#" + id; a.dataset.tab = id; a.innerHTML = `<pre>${A.button(label)}</pre>`;
+      a.onclick = (e) => { e.preventDefault(); showTab(id, true); };
       bar.appendChild(a);
     });
+    if (C.x) {
+      const a = document.createElement("a");
+      a.className = "abtn"; a.href = C.x; a.target = "_blank"; a.rel = "noopener"; a.title = C.x.replace("https://", "");
+      a.innerHTML = `<pre>${A.button("X")}</pre>`;
+      bar.appendChild(a);
+    }
   }
+
+  // ---------------------------------------------------------------- tabs (hash-addressable: #dashboard #bond #stake #nfo)
+  const TABS = [["DASHBOARD", "dashboard"], ["BOND", "bond"], ["STAKE", "stake"], ["NFO", "nfo"]];
+  function showTab(id, push) {
+    if (!TABS.some(([, t]) => t === id)) id = "dashboard";
+    document.querySelectorAll("section.tab").forEach((s) => { s.hidden = s.id !== id; });
+    document.querySelectorAll("#abar .abtn[data-tab]").forEach((a) => a.classList.toggle("on", a.dataset.tab === id));
+    if (push && location.hash !== "#" + id) history.replaceState(null, "", "#" + id);
+  }
+  window.addEventListener("hashchange", () => showTab(location.hash.slice(1), false));
 
   // ---------------------------------------------------------------- chart (ascii sparkline)
   async function refreshChart() {
@@ -131,8 +147,8 @@
       const state = !started ? (src ? "READY TO START" : "WAITING FOR MARKET") : paused ? "ENTRIES PAUSED" : Number(discount) > 0 ? "BONDS OPEN" : "ABOVE TARGET";
       const stateTag = state === "BONDS OPEN" ? `<b>${state}</b>` : state === "ENTRIES PAUSED" ? `<i>${state}</i>` : state;
       $("statusbar").innerHTML = ` EPOCH ${epoch}  ${stateTag}  ${SOURCE[src] || "?"}  next poke ${!started ? "—" : next <= 0 ? "now" : "in " + clock(next)}  spot ${spot > 0n ? fmtNum(fromQ96(spot), 0) : "—"}  target ${target > 0n ? fmtNum(fromQ96(target), 0) : "—"}  ${(Number(discount) / 100).toFixed(2)}% below`;
-      $("discount").textContent = (Number(discount) / 100).toFixed(2);
-      $("bonus").textContent = (Number(bonus) / 100).toFixed(2);
+      $("discount").textContent = $("discount2").textContent = (Number(discount) / 100).toFixed(2);
+      $("bonus").textContent = $("bonus2").textContent = (Number(bonus) / 100).toFixed(2);
       $("spot").textContent = spot > 0n ? fmtNum(fromQ96(spot), 0) + " / ETH" : "—";
       $("source").textContent = SOURCE[src] || "—";
       $("target").textContent = target > 0n ? fmtNum(fromQ96(target), 0) + " / ETH" : "—";
@@ -141,9 +157,9 @@
       $("nextPoke").textContent = !started ? "after start" : next <= 0 ? "now" : clock(next);
       $("samples").textContent = `${sampleCount} (min ${p.minSamples})`;
       $("ethReserve").textContent = fmtEth(ethReserve);
-      $("crypt").textContent = fmtTok(crypt) + " " + symbol;
-      $("outstanding").textContent = fmtTok(outstanding) + " " + symbol;
-      $("totalStaked").textContent = fmtTok(totalStaked) + " " + symbol;
+      $("crypt").textContent = $("crypt2").textContent = fmtTok(crypt) + " " + symbol;
+      $("outstanding").textContent = $("outstanding2").textContent = fmtTok(outstanding) + " " + symbol;
+      $("totalStaked").textContent = $("totalStaked2").textContent = fmtTok(totalStaked) + " " + symbol;
       $("burned").textContent = fmtTok(burned) + " " + symbol;
       $("boughtBack").textContent = fmtTok(boughtBack) + " " + symbol;
       $("lastSample").textContent = lastSampleAt > 0n ? new Date(Number(lastSampleAt) * 1000).toLocaleTimeString(loc, { hour: "2-digit", minute: "2-digit" }) : "—";
@@ -161,7 +177,7 @@
       $("treasuryBps").textContent = (Number(tBps) / 100).toString();
       $("harvested").textContent = fmtEth(harvested);
       $("toTreasury").textContent = fmtEth(toT);
-      $("toProtocol").textContent = fmtEth(toP);
+      $("toProtocol").textContent = $("toProtocol2").textContent = fmtEth(toP);
       $("harvestBtn").disabled = pending === 0n;
       quoteBond();
       if (account) await refreshUser();
@@ -236,6 +252,7 @@
       account = await signer.getAddress();
       $("connectBtn").innerHTML = `<pre>${A.button(short(account).toUpperCase())}</pre>`;
       $("connectBtn").classList.add("on");
+      $("connectBtn").title = account;
       prompt(`connected ${short(account)}`);
       await refreshUser();
     } catch (e) { prompt(e.shortMessage || e.message, true); }
@@ -272,6 +289,7 @@
   const parseAmt = (id) => ethers.parseUnits(($(id).value || "0").replace(",", "."), decimals);
 
   paintHeader();
+  showTab(location.hash.slice(1), false);
   $("bondForm").onsubmit = (e) => { e.preventDefault(); send(async () => { const a = parseAmt("bondAmt"); await ensureAllowance(a); return engineW().bond(a, Math.max(0, currentBonusBps - 50)); }, "bond created"); };
   $("stakeForm").onsubmit = (e) => { e.preventDefault(); send(async () => { const a = parseAmt("stakeAmt"); await ensureAllowance(a); return engineW().stake(a); }, "staked"); };
   $("unstakeBtn").onclick = () => send(() => engineW().unstake(parseAmt("stakeAmt")), "unstaked");

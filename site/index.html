@@ -13,18 +13,20 @@
 
   <header class="hdr">
     <pre class="art rain" id="rain" aria-hidden="true"></pre>
+    <div class="connect"><a class="abtn" id="connectBtn" href="#connect" title="connect wallet"><pre></pre></a></div>
     <pre class="art moon c" id="moon" aria-hidden="true"></pre>
     <pre class="art logo c" id="logo" aria-label="LUNARRAY"></pre>
     <div class="tag c">bond the dark side · earn ETH for holding · live from the curve</div>
     <pre class="art ground" id="ground" aria-hidden="true"></pre>
   </header>
 
-  <nav class="abar" id="abar"></nav>
+  <nav class="abar tabs" id="abar" aria-label="sections"></nav>
 
   <div class="status" id="statusbar"> EPOCH —  ·  loading</div>
   <div class="prompt" id="prompt">&gt; connecting to rpc<span class="cur">█</span></div>
 
-  <section id="dashboard">
+  <!-- ── tab: dashboard ─────────────────────────────────────────── -->
+  <section class="tab" id="dashboard">
     <div class="ttl">DASHBOARD <small id="chainLabel"></small></div>
     <div class="cols">
       <div>
@@ -52,63 +54,84 @@
         <div class="kv"><span>to protocol</span><span class="dots"></span><b id="toProtocol">—</b></div>
       </div>
     </div>
-  </section>
 
-  <section class="cols">
-    <div class="panel" id="bond">
-      <div class="ttl">BOND</div>
-      <p>Deposit below target. After <span class="bright" id="vest">—</span> epochs you receive principal + the bonus locked at entry. <span class="bright" id="entryBurn">—</span>% of the entry is burned. Leaving early returns principal minus <span class="bright" id="penalty">—</span>%.</p>
-      <form id="bondForm">
-        <div class="line"><label>&gt; amount</label><input class="field" id="bondAmt" placeholder="0" inputmode="decimal" autocomplete="off" /><span id="bondUnit">TOKEN</span><button type="button" class="max" id="bondMax">(max)</button></div>
-        <div class="kv"><span>you receive</span><span class="dots"></span><b id="bondQuote">—</b></div>
-        <div class="line"><button type="submit" class="tbtn primary" id="bondBtn">BOND</button></div>
-      </form>
-      <table class="tt" id="myBondsTable" hidden>
-        <thead><tr><th>#</th><th>in</th><th>out</th><th>status</th><th></th></tr></thead>
-        <tbody id="myBonds"></tbody>
-      </table>
-      <div class="help" id="bondHelp"></div>
-    </div>
-    <div class="panel" id="stake">
-      <div class="ttl">STAKE</div>
-      <p><span class="bright" id="stakingShare">—</span>% of the ETH that reaches the protocol goes to stakers, pro-rata. No lock, no penalty. Yield starts on the bonding curve, before graduation.</p>
-      <p class="dim">prefer a transferable position? stake through <span class="bright">sLUNARRAY</span>, the liquid staking receipt: 1:1, rewards follow the balance. contract <span id="stakedLink">—</span></p>
-      <div class="kv"><span>staked</span><span class="dots"></span><b id="myStake">—</b></div>
-      <div class="kv"><span>ETH to claim</span><span class="dots"></span><b id="myEarned">—</b></div>
-      <form id="stakeForm">
-        <div class="line"><label>&gt; amount</label><input class="field" id="stakeAmt" placeholder="0" inputmode="decimal" autocomplete="off" /><span id="stakeUnit">TOKEN</span><button type="button" class="max" id="stakeMax">(max)</button></div>
-        <div class="line">
-          <button type="submit" class="tbtn primary" id="stakeBtn">STAKE</button>
-          <button type="button" class="tbtn" id="unstakeBtn">UNSTAKE</button>
-          <button type="button" class="tbtn" id="claimBtn">CLAIM ETH</button>
-        </div>
-      </form>
-    </div>
-  </section>
-
-  <section id="nfo">
-    <div class="ttl">NFO</div>
-    <div class="cols">
-      <div>
-        <p><span class="bright">market.</span> the engine is live from block one: while the token sits on the pons curve it reads the curve's reserves and buys back through the curve. at graduation it switches to the uniswap v4 pool by itself. nothing is redeployed.</p>
-        <p><span class="bright">oracle.</span> one price sample per epoch. target = mean of the last samples. nothing off-chain, nothing signed.</p>
-      </div>
-      <div>
-        <p><span class="bright">flywheel.</span> 5% creator tax → 3% straight to the treasury, 2% to the engine → half to stakers as ETH, half to buybacks → tokens into the crypt → bonds paid. every step is a public function.</p>
-        <p><span class="bright">safety.</span> immutable addresses, curve and pool. the guardian can only pause <i>new entries</i> for up to 7 days, propose parameters that execute 48h later, and sweep idle protocol funds after 30 days without bonds. stakes and rewards are never touchable.</p>
-        <p><a href="docs.html">&gt; read the full docs</a></p>
-      </div>
-    </div>
-  </section>
-
-  <section>
-    <div class="ttl">MAINTENANCE <small>anyone can run these</small></div>
+    <div class="ttl" style="margin-top:34px">MAINTENANCE <small>anyone can run these</small></div>
     <p>once per epoch <span class="accent">poke()</span> records the price and buys back with 10% of the reserve on the live market; the caller gets a tip. <span class="accent">harvest()</span> moves fees from pons into the split. <span class="accent">settle()</span> pays matured bonds in order.</p>
     <div class="line">
       <button class="tbtn" id="pokeBtn">POKE</button>
       <button class="tbtn" id="harvestBtn">HARVEST</button>
       <button class="tbtn" id="settleBtn">SETTLE</button>
       <span class="dim">last sample <span id="lastSample">—</span> · tip <span id="tip">—</span></span>
+    </div>
+  </section>
+
+  <!-- ── tab: bond ──────────────────────────────────────────────── -->
+  <section class="tab" id="bond" hidden>
+    <div class="ttl">BOND <small>deposit below target, get paid above it</small></div>
+    <div class="cols">
+      <div class="panel">
+        <form id="bondForm">
+          <div class="line"><label>&gt; amount</label><input class="field" id="bondAmt" placeholder="0" inputmode="decimal" autocomplete="off" /><span id="bondUnit">TOKEN</span><button type="button" class="max" id="bondMax">(max)</button></div>
+          <div class="kv"><span>you receive</span><span class="dots"></span><b id="bondQuote">—</b></div>
+          <div class="kv"><span>matures</span><span class="dots"></span><b>after <span id="vest">—</span> epochs</b></div>
+          <div class="line"><button type="submit" class="tbtn primary" id="bondBtn">BOND</button></div>
+        </form>
+        <div class="help" id="bondHelp"></div>
+        <table class="tt" id="myBondsTable" hidden>
+          <thead><tr><th>#</th><th>in</th><th>out</th><th>status</th><th></th></tr></thead>
+          <tbody id="myBonds"></tbody>
+        </table>
+      </div>
+      <div class="panel">
+        <div class="kv"><span>discount to target</span><span class="dots"></span><b class="y"><span id="discount2">—</span>%</b></div>
+        <div class="kv"><span>bond bonus now</span><span class="dots"></span><b><span id="bonus2">—</span>%</b></div>
+        <div class="kv"><span>crypt (pays bonds)</span><span class="dots"></span><b id="crypt2">—</b></div>
+        <div class="kv"><span>bonds owed</span><span class="dots"></span><b id="outstanding2">—</b></div>
+        <p style="margin-top:12px">Deposit when the token trades below its moving target. The deeper the discount, the larger the bonus, locked at entry. <span class="bright" id="entryBurn">—</span>% of the entry is burned. Bonds are paid first-in, first-out from the crypt once they mature. Leaving early returns principal minus <span class="bright" id="penalty">—</span>%.</p>
+        <p class="dim">the bonus is computed against the target, not the last trade. a spot price can move inside a block; the target needs sustained price to move.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── tab: stake ─────────────────────────────────────────────── -->
+  <section class="tab" id="stake" hidden>
+    <div class="ttl">STAKE <small>no lock, no penalty, paid in ETH</small></div>
+    <div class="cols">
+      <div class="panel">
+        <div class="kv"><span>staked</span><span class="dots"></span><b id="myStake">—</b></div>
+        <div class="kv"><span>ETH to claim</span><span class="dots"></span><b id="myEarned">—</b></div>
+        <form id="stakeForm">
+          <div class="line"><label>&gt; amount</label><input class="field" id="stakeAmt" placeholder="0" inputmode="decimal" autocomplete="off" /><span id="stakeUnit">TOKEN</span><button type="button" class="max" id="stakeMax">(max)</button></div>
+          <div class="line">
+            <button type="submit" class="tbtn primary" id="stakeBtn">STAKE</button>
+            <button type="button" class="tbtn" id="unstakeBtn">UNSTAKE</button>
+            <button type="button" class="tbtn" id="claimBtn">CLAIM ETH</button>
+          </div>
+        </form>
+      </div>
+      <div class="panel">
+        <div class="kv"><span>total staked</span><span class="dots"></span><b id="totalStaked2">—</b></div>
+        <div class="kv"><span>ETH to protocol so far</span><span class="dots"></span><b id="toProtocol2">—</b></div>
+        <p style="margin-top:12px"><span class="bright" id="stakingShare">—</span>% of the ETH that reaches the protocol goes to stakers, pro-rata, the moment it arrives. Unstake any time. Yield starts on the bonding curve, before graduation.</p>
+        <p class="dim">prefer a transferable position? stake through <span class="bright">sLUNARRAY</span>, the liquid staking receipt: 1:1, rewards follow the balance. contract <span id="stakedLink">—</span></p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ── tab: nfo ───────────────────────────────────────────────── -->
+  <section class="tab" id="nfo" hidden>
+    <div class="ttl">NFO <small>how it works</small></div>
+    <div class="cols">
+      <div>
+        <p><span class="bright">market.</span> the engine is live from block one: while the token sits on the pons curve it reads the curve's reserves and buys back through the curve. at graduation it switches to the uniswap v4 pool by itself. nothing is redeployed.</p>
+        <p><span class="bright">oracle.</span> one price sample per epoch. target = mean of the last samples. nothing off-chain, nothing signed.</p>
+        <p><span class="bright">flywheel.</span> 5% creator tax → 3% straight to the treasury, 2% to the engine → half to stakers as ETH, half to buybacks → tokens into the crypt → bonds paid. every step is a public function.</p>
+      </div>
+      <div>
+        <p><span class="bright">safety.</span> immutable addresses, curve and pool. the guardian can only pause <i>new entries</i> for up to 7 days, propose parameters that execute 48h later, and sweep idle protocol funds after 30 days without bonds. stakes and rewards are never touchable.</p>
+        <p><span class="bright">keepers.</span> poke, harvest, settle and start are permissionless. the poke caller is tipped from the reserve.</p>
+        <p><a href="docs.html">&gt; read the full docs</a></p>
+      </div>
     </div>
   </section>
 
