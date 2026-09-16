@@ -107,6 +107,12 @@
     const cb = $("connectBtn");
     cb.innerHTML = `<pre>${A.button("CONNECT")}</pre>`;
     cb.onclick = (e) => { e.preventDefault(); connect(); };
+    if (C.x) {
+      const xb = $("xBtn");
+      const handle = C.x.replace(/^https?:\/\/(www\.)?(x|twitter)\.com\//i, "").replace(/\/.*$/, "");
+      xb.href = C.x; xb.title = C.x; xb.hidden = false;
+      xb.innerHTML = `<pre>${A.button("X @" + handle.toUpperCase())}</pre>`;
+    }
     const bar = $("abar");
     TABS.forEach(([label, id]) => {
       const a = document.createElement("a");
@@ -114,12 +120,6 @@
       a.onclick = (e) => { e.preventDefault(); showTab(id, true); };
       bar.appendChild(a);
     });
-    if (C.x) {
-      const a = document.createElement("a");
-      a.className = "abtn"; a.href = C.x; a.target = "_blank"; a.rel = "noopener"; a.title = C.x.replace("https://", "");
-      a.innerHTML = `<pre>${A.button("X")}</pre>`;
-      bar.appendChild(a);
-    }
   }
 
   // ---------------------------------------------------------------- tabs (hash-addressable: #dashboard #bond #stake #nfo)

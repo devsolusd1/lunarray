@@ -66,7 +66,6 @@ window.BOND_CONFIG = Object.assign(window.BOND_CONFIG || {}, {
   devWallet: "${deployer.address}",
   devlock: "${await devlock.getAddress()}",
   tokenSymbol: "MOCK",
-  x: "",
   treasuryBps: 6000,
   devPrivateKey: "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6", // PUBLIC hardhat test key (account #3), local node only, never holds funds
 });
